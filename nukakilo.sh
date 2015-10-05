@@ -56,7 +56,6 @@ function ansible_pip_delete {
    # Clean up after the removal (cause stuff will get left behind...)
    echo "Clean up after the removal (cause stuff will get left behind...)"
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm -rf /usr/local/lib/python2.7/dist-packages/*"
-   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm -rf /usr/lib/python2.7/dist-packages/*"
 
    return 0
 
@@ -288,7 +287,7 @@ function nuka_infra {
 
          # Clean up after the removal (cause stuff will get left behind...)
          ssh $infra "rm -rf /usr/local/lib/python2.7/dist-packages/*"
-         ssh $infra  "rm -rf /usr/lib/python2.7/dist-packages/*"
+         #ssh $infra  "rm -rf /usr/lib/python2.7/dist-packages/*"
 
          # Delete the binaries that were placed on the infra
          ssh $infra "for srv in nova neutron cinder heat keystone openstack glance swift;do rm /usr/local/bin/\$srv*"
@@ -304,7 +303,7 @@ function nuka_infra {
 
    # Clean up after the removal (cause stuff will get left behind...)
    rm -rf /usr/local/lib/python2.7/dist-packages/*
-   rm -rf /usr/lib/python2.7/dist-packages/*
+   #rm -rf /usr/lib/python2.7/dist-packages/*
 
    # Delete the binaries that were placed on the infra
    for srv in nova neutron cinder heat keystone openstack glance swift
