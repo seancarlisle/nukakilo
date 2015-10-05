@@ -1,0 +1,4 @@
+Script I wrote to blow away an OpenStack Kilo deployment that was deployed using OSAD.
+This script makes a lot of assumptions based on that.
+
+Usage: nukakilo.sh
