@@ -99,7 +99,17 @@ function ansible_delete_openstack_dir {
 
 }
 
+# Uses ansible to remotely delete repositories and update apt cache
+function ansible_delete_mariadb_repo {
+   ANSIBLE_GROUP=$1
 
+   cd /opt/openstack-ansible/playbooks
+
+   /usr/local/bin/ansible $ANSILE_GROUP -m shell -a "rm /etc/apt/sources.list.d/mirror_rackspace_com_mariadb_repo_5_5_ubuntu.list && apt-get update"
+
+   return 0
+
+}
 
 
 ###############################################################################
@@ -126,9 +136,8 @@ function nuka_swift {
    # Delete all in /openstack
    ansible_delete_openstack_dir swift_hosts
 
-   # Destroy swift proxy containers
-   #echo "Destroy swift proxy containers"
-   #/usr/local/bin/ansible swift-proxy_hosts -m shell -a "for container in \$(lxc-ls | grep swift);do lxc-destroy -f -n \$container;done"
+   # Delete mariadb repo file
+   ansible_delete_mariadb_repo swift_hosts
 
    return 0
 }
@@ -137,44 +146,28 @@ function nuka_swift {
 function nuka_compute {
 
    # Stop nova-compute services
-   #echo "Stop nova-compute services"
-   #/usr/local/bin/ansible nova_compute -m service -a "name=nova-compute state=stopped"
    ansible_stop_services nova nova_compute
 
    # Stop neutron services
-   #echo "Stop neutron services"
-   #/usr/local/bin/ansible nova_compute -m service -a "name=neutron-linuxbridge-agent state=stopped"
    ansible_stop_services neutron nova_compute
 
    # Delete all nova files
-   #echo "Delete all nova files"
-   #/usr/local/bin/ansible nova_compute -m shell -a "for item in \$(find / -name nova*);do rm -rf \$item;done"
    ansible_delete_files nova nova_compute
 
    # Delete all neutron files
-   #echo "Delete all neutron files"
-   #/usr/local/bin/ansible nova_compute -m shell -a "for item in \$(find / -name neutron*);do rm -rf \$item;done"
    ansible delete_files neutron nova_compute
 
    # Remove all pip packages
-   #echo "Remove all pip packages"
-   #/usr/local/bin/ansible nova_compute -m shell -a "for pkg in \$(pip list | awk -F\( '{print \$1}');do pip uninstall -y \$pkg;done"
    ansible_pip_delete nova_compute
 
-   # Clean up after the removal (cause stuff will get left behind...)
-   #echo "Clean up after the removal (cause stuff will get left behind...)"
-   #/usr/local/bin/ansible nova_compute -m shell -a "rm -rf /usr/local/lib/python2.7/dist-packages/*"
-   #/usr/local/bin/ansible nova_compute -m shell -a "rm -rf /usr/lib/python2.7/dist-packages/*"
-
    # Remove lxc_trusty.tgz and the lxc cache itself
-   #echo "Remove lxc_trusty.tgz and the lxc cache itself"
-   #/usr/local/bin/ansible nova_compute -m shell -a "rm -rf /var/cache/lxc_trusty.tgz;rm -rf /var/cache/lxc/*"
    ansible_delete_cache nova_compute
    
    # Delete all in /openstack
-   #echo "Delete all in /openstack"
-   #/usr/local/bin/ansible nova_compute -m shell -a "rm -rf /openstack/*"
    ansible_delete_openstack_dir nova_compute
+
+   # Delete mariadb repo file
+   ansible_delete_mariadb_repo nova_compute
 
    return 0
 }
@@ -192,12 +185,6 @@ function nuka_cinder {
       /usr/local/bin/ansible storage_hosts -m shell -a "for vol in \$(lvs cinder-volumes);do lvremove -f \$vol;done"
 
       # Stop all cinder services
-      #/usr/local/bin/ansible storage_hosts -m shell -a "for srv in \$(ls /etc/init/cinder* | awk -F\/ '{print \$4}' | cut -d\. -f1);do service \$srv stop;done"
-
-      # Delete all cinder files
-      #/usr/local/bin/ansible storage_hosts -m shell -a "for item in \$(find / -name cinder*);do rm -rf \$item;done"
-
-      # Stop all cinder services
       ansible_stop_services storage_hosts cinder
 
       # Delete all cinder files
@@ -209,26 +196,21 @@ function nuka_cinder {
       /usr/local/bin/ansible cinder_volume -m shell -a "for vol in \$(lvs cinder-volumes);do lvremove -f \$vol;done"
 
       # Destroy the cinder containers
-      #/usr/local/bin/ansible storage_hosts -m shell -a "for container in \$(lxc-ls);do lxc-destroy -f -n \$container;done"
       ansible_destroy_containers storage_hosts
       
    fi
    
    # Remove all pip packages
-   #/usr/local/bin/ansible storage_hosts -m shell -a "for pkg in \$(pip list | awk -F\( '{print \$1}');do pip uninstall -y \$pkg;done"
    ansible_pip_delete storage_hosts
 
-   # Clean up after the removal (cause stuff will get left behind...)
-   #/usr/local/bin/ansible storage_hosts -m shell -a "rm -rf /usr/local/lib/python2.7/dist-packages/*"
-   #/usr/local/bin/ansible storage_hosts -m shell -a "rm -rf /usr/lib/python2.7/dist-packages/*"
-
    # Remove lxc_trusty.tgz and the lxc cache itself
-   #/usr/local/bin/ansible storage_hosts -m shell -a "rm -rf /var/cache/lxc_trusty.tgz;rm -rf /var/cache/lxc/*"
    ansible_delete_cache storage_hosts
 
    # Delete all in /openstack
-   #/usr/local/bin/ansible storage_hosts -m shell -a "rm -rf /openstack/*"
    ansible_delete_openstack_dir storage_hosts
+
+   # Delete mariadb repo file
+   ansible_delete_mariadb_repo storage_hosts
 
    return 0
 }
@@ -239,24 +221,19 @@ function nuka_logger {
    cd /opt/openstack-ansible/playbooks
 
    # Destroy all containers
-   #/usr/local/bin/ansible log_hosts -m shell -a "for container in \$(lxc-ls);do lxc-destroy -f -n \$container;done"
    ansible_destroy_containers log_hosts
 
    # Delete all in /openstack
-   #/usr/local/bin/ansible log_hosts -m shell -a "rm -rf /openstack/*"   
    ansible_delete_openstack_dir log_hosts
 
    # Remove lxc_trusty.tgz and the lxc cache itself
-   #/usr/local/bin/ansible log_hosts -m shell -a "rm -rf /var/cache/lxc_trusty.tgz;rm -rf /var/cache/lxc/*"
    ansible_delete_cache log_hosts
 
    # Uninstall all pip packages
-   #/usr/local/bin/ansible log_hosts -m shell -a "for pkg in \$(pip list | awk -F\( '{print \$1}');do pip uninstall -y \$pkg;done"
    ansible_pip_delete log_hosts
 
-   # Clean up after the removal (cause stuff will get left behind...)
-   #/usr/local/bin/ansible log_hosts -m shell -a "rm -rf /usr/local/lib/python2.7/dist-packages/*"
-   #/usr/local/bin/ansible log_hosts -m shell -a "rm -rf /usr/lib/python2.7/dist-packages/*"
+   # Delete mariadb repo file
+   ansible_delete_mariadb_repo log_hosts
 
    return 0
 }
@@ -276,6 +253,9 @@ function nuka_infra {
  
    # Remove lxc_trusty.tgz and the lxc cache itself
    /usr/local/bin/ansible infra_hosts -m shell -a "rm -rf /var/cache/lxc_trusty.tgz;rm -rf /var/cache/lxc/*"
+
+   # Delete mariadb repo file
+   ansible_delete_mariadb_repo infra_hosts
 
    for infra in ${INFRAS[@]}
    do
@@ -303,7 +283,6 @@ function nuka_infra {
 
    # Clean up after the removal (cause stuff will get left behind...)
    rm -rf /usr/local/lib/python2.7/dist-packages/*
-   #rm -rf /usr/lib/python2.7/dist-packages/*
 
    # Delete the binaries that were placed on the infra
    for srv in nova neutron cinder heat keystone openstack glance swift
@@ -317,18 +296,17 @@ function nuka_infra {
 
   # Delete the environment info
   rm -rf /etc/openstack_deploy
-  #rm -rf /etc/rpc_deploy.OLD
 
    return 0
 }
 
 
 
-########################################################
-#                                                      #
-# Main                                                 #
-#                                                      #
-########################################################
+################################################################################
+#                                                                              #
+# Main                                                                         #
+#                                                                              #
+################################################################################
 
 
 read -p "Have all instances been deleted? (yes|no)" DELETED
