@@ -24,7 +24,7 @@ function ansible_delete_files {
    cd /opt/openstack-ansible/playbooks
 
    echo "Deleting all $PROJECT files"
-   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for item in \$(find / -name $PROJECT*);do rm -rf \$item;done"
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for item in \$(find / -name \$PROJECT*);do rm -rf \$item;done"
  
    return 0
 
@@ -82,7 +82,7 @@ function ansible_destroy_containers {
    cd /opt/openstack-ansible/playbooks
 
    # Gracefully stop the container
-   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-stop -f -n \$container;done"
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-stop -n \$container;done"
 
    # Not-so-gracefully destroy it
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-destroy -f -n \$container;done"
@@ -112,7 +112,7 @@ function ansible_delete_mariadb_repo {
 
    cd /opt/openstack-ansible/playbooks
 
-   /usr/local/bin/ansible $ANSILE_GROUP -m shell -a "rm /etc/apt/sources.list.d/mirror_rackspace_com_mariadb_repo_5_5_ubuntu.list && apt-get update"
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm /etc/apt/sources.list.d/mirror_rackspace_com_mariadb_repo_5_5_ubuntu.list && apt-get update"
 
    return 0
 
