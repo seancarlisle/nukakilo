@@ -81,7 +81,14 @@ function ansible_destroy_containers {
 
    cd /opt/openstack-ansible/playbooks
 
+   # Gracefully stop the container
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-stop -f -n \$container;done"
+
+   # Not-so-gracefully destroy it
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-destroy -f -n \$container;done"
+
+   # Ensure the logical volume is gone
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for lv in \$(lvs | grep \$(hostname -s) | awk '{print \$1}');do lvremove -f /dev/lxc/\$lv;done"
 
    return 0
 
