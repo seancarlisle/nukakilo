@@ -21,10 +21,10 @@ function ansible_delete_files {
    PROJECT=$1
    ANSIBLE_GROUP=$2
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    echo "Deleting all $PROJECT files"
-   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for item in \$(find / -name \$PROJECT*);do rm -rf \$item;done"
+   /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for item in \$(find / -name $PROJECT*);do rm -rf \$item;done"
  
    return 0
 
@@ -35,7 +35,7 @@ function ansible_stop_services {
    PROJECT=$1
    ANSIBLE_GROUP=$2
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    echo "Stopping all $PROJECT services"
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for srv in \$(ls /etc/init/$PROJECT* | awk -F\/ '{print \$4}' | cut -d\. -f1);do service \$srv stop;done"
@@ -48,7 +48,7 @@ function ansible_stop_services {
 function ansible_pip_delete {
    ANSIBLE_GROUP=$1
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    echo "Uninstalling all pip packages"
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for pkg in \$(pip list | awk -F\( '{print \$1}');do pip uninstall -y \$pkg;done"
@@ -66,7 +66,7 @@ function ansible_delete_cache {
 
    ANSIBLE_GROUP=$1
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    echo "Remove lxc_trusty.tgz and the lxc cache itself"
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm -rf /var/cache/lxc_trusty.tgz;rm -rf /var/cache/lxc/*"
@@ -79,7 +79,7 @@ function ansible_delete_cache {
 function ansible_destroy_containers {
    ANSIBLE_GROUP=$1
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    # Gracefully stop the container
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for container in \$(lxc-ls);do lxc-stop -n \$container;done"
@@ -98,7 +98,7 @@ function ansible_destroy_containers {
 function ansible_delete_openstack_dir {
    ANSIBLE_GROUP=$1
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm -rf /openstack/*"
 
@@ -110,7 +110,7 @@ function ansible_delete_openstack_dir {
 function ansible_delete_mariadb_repo {
    ANSIBLE_GROUP=$1
 
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "rm /etc/apt/sources.list.d/mirror_rackspace_com_mariadb_repo_5_5_ubuntu.list && apt-get update"
 
@@ -118,6 +118,18 @@ function ansible_delete_mariadb_repo {
 
 }
 
+# Uses ansible to remotely delete rackspace-monitoring-agent
+function ansible_remove_rackspace_monitoring_agent {
+   ANSIBLE_GROUP=$1
+
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
+
+  /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "service rackspace-monitoring-agent stop;pip uninstall rackspace-monitoring-agent-client;apt-get purge -y rackspace-monitoring-agent;"
+  /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for i in \$(find / -name raxmon*);do rm -rf \$i;done"
+  /usr/local/bin/ansible $ANSIBLE_GROUP -m shell -a "for i in \$(find / -name rackspace-monitoring*);do rm -rf \$i;done"
+
+  return 0
+}
 
 ###############################################################################
 #                                                                             #
@@ -133,6 +145,9 @@ function nuka_swift {
 
    # Delete all swift files
    ansible_delete_files swift swift_hosts
+
+   # Remove raxmon and rackspace-monitoring-agent
+   ansible_remove_rackspace_monitoring_agent swift_hosts
 
    # Remove all pip packages
    ansible_pip_delete swift_hosts
@@ -164,6 +179,9 @@ function nuka_compute {
    # Delete all neutron files
    ansible delete_files neutron nova_compute
 
+   # Remove raxmon and rackspace-monitoring-agent
+   ansible_remove_rackspace_monitoring_agent nova_compute
+
    # Remove all pip packages
    ansible_pip_delete nova_compute
 
@@ -183,7 +201,7 @@ function nuka_compute {
 function nuka_cinder {
 
    METAL=$1
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
    if [ "$METAL" == "true" ]
    then
@@ -207,6 +225,9 @@ function nuka_cinder {
       
    fi
    
+   # Remove raxmon and rackspace-monitoring-agent
+   ansible_remove_rackspace_monitoring_agent storage_hosts
+
    # Remove all pip packages
    ansible_pip_delete storage_hosts
 
@@ -236,6 +257,9 @@ function nuka_logger {
    # Remove lxc_trusty.tgz and the lxc cache itself
    ansible_delete_cache log_hosts
 
+   # Remove raxmon and rackspace-monitoring-agent
+   ansible_remove_rackspace_monitoring_agent log_hosts
+
    # Uninstall all pip packages
    ansible_pip_delete log_hosts
 
@@ -249,7 +273,7 @@ function nuka_logger {
 function nuka_infra {
    
    INFRAS=$1   
-   cd /opt/openstack-ansible/playbooks
+   cd /opt/rpc-openstack/openstack-ansible/playbooks
 
 
    # Destroy all containers
@@ -269,6 +293,11 @@ function nuka_infra {
       if [ "$infra" != *"infra01"* ]
       then
 
+         # ssh to infra and delete raxmon and rackspace-monitoring-agent
+         ssh $infra "service rackspace-monitoring-agent stop;pip uninstall rackspace-monitoring-agent-client;apt-get purge -y rackspace-monitoring-agent;"
+         ssh $infra "for i in \$(find / -name raxmon*);do rm -rf \$i;done"
+         ssh $infra "for i in \$(find / -name rackspace-monitoring*);do rm -rf \$i;done"
+         
          # ssh to infra and delete all the things
          ssh $infra "for pkg in \$(pip list | awk -F\( '{print \$1}');do pip uninstall -y \$pkg;done"
 
@@ -281,6 +310,11 @@ function nuka_infra {
 
       fi
    done
+
+   # delete raxmon and rackspace-monitoring-agent
+   service rackspace-monitoring-agent stop;pip uninstall rackspace-monitoring-agent-client;apt-get purge -y rackspace-monitoring-agent
+   for i in $(find / -name raxmon*);do rm -rf $i;done
+   for i in $(find / -name rackspace-monitoring*);do rm -rf $i;done
 
    # Delete all the things on infra01
    for pkg in $(pip list | awk -F\( '{print $1}')
@@ -382,3 +416,4 @@ echo ${INFRAS[@]}
 nuka_infra $INFRAS
 
 echo "We're done here."
+
